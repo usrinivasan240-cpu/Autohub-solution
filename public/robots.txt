@@ -1,0 +1,11 @@
+# AutoHub Solutions - Robots.txt
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://autohub.in/sitemap.xml
+
+# Disallow admin areas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /signup
