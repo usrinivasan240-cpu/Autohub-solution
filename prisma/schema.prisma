@@ -1,0 +1,199 @@
+// Prisma Schema for AutoHub Solutions
+// Database: PostgreSQL (recommended for production)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User/Lead Management
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String?
+  phone           String?
+  company         String?
+  password        String?
+  role            Role      @default(LEAD)
+  status          LeadStatus @default(NEW)
+  source          String?   // Website, Referral, Ads, etc.
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  leads           Lead[]
+  messages        ContactMessage[]
+  subscriptions   Subscription[]
+  
+  @@map("users")
+}
+
+enum Role {
+  LEAD
+  CUSTOMER
+  ADMIN
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+// Lead Tracking
+model Lead {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  serviceId       String?
+  service         Service?  @relation(fields: [serviceId], references: [id])
+  planId          String?
+  plan            Plan?     @relation(fields: [planId], references: [id])
+  status          LeadStatus @default(NEW)
+  notes           String?
+  estimatedValue  Decimal?  @db.Decimal(10, 2)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("leads")
+}
+
+// Services Management
+model Service {
+  id              String    @id @default(cuid())
+  title           String
+  slug            String    @unique
+  description     String    @db.Text
+  shortDescription String?
+  icon            String?
+  features        String[]  @db.Array(String)
+  benefits        String?   @db.Text
+  order           Int       @default(0)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  leads           Lead[]
+  planServices    PlanService[]
+  
+  @@map("services")
+}
+
+// Pricing Plans
+model Plan {
+  id              String    @id @default(cuid())
+  name            String
+  slug            String    @unique
+  description     String?
+  monthlyPrice    Decimal   @db.Decimal(10, 2)
+  yearlyPrice     Decimal?  @db.Decimal(10, 2)
+  features        String[]  @db.Array(String)
+  isPopular       Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  order           Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  leads           Lead[]
+  planServices    PlanService[]
+  subscriptions   Subscription[]
+  
+  @@map("plans")
+}
+
+// Many-to-Many relationship between Plans and Services
+model PlanService {
+  id              String    @id @default(cuid())
+  planId          String
+  plan            Plan      @relation(fields: [planId], references: [id])
+  serviceId       String
+  service         Service   @relation(fields: [serviceId], references: [id])
+  included        Boolean   @default(true)
+  
+  @@unique([planId, serviceId])
+  @@map("plan_services")
+}
+
+// Contact Messages
+model ContactMessage {
+  id              String    @id @default(cuid())
+  userId          String?
+  user            User?     @relation(fields: [userId], references: [id])
+  name            String
+  email           String
+  phone           String?
+  subject         String?
+  message         String    @db.Text
+  type            MessageType @default(GENERAL)
+  status          MessageStatus @default(NEW)
+  response        String?   @db.Text
+  respondedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("contact_messages")
+}
+
+enum MessageType {
+  GENERAL
+  SALES
+  SUPPORT
+  PARTNERSHIP
+  CAREERS
+}
+
+enum MessageStatus {
+  NEW
+  READ
+  REPLIED
+  CLOSED
+}
+
+// Subscriptions for billing
+model Subscription {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  planId          String
+  plan            Plan      @relation(fields: [planId], references: [id])
+  status          SubscriptionStatus @default(ACTIVE)
+  startedAt       DateTime  @default(now())
+  expiresAt       DateTime?
+  paymentId       String?
+  amount          Decimal?  @db.Decimal(10, 2)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("subscriptions")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+}
+
+// API Logs for debugging
+model ApiLog {
+  id              String    @id @default(cuid())
+  endpoint        String
+  method          String
+  requestBody     Json?
+  responseStatus  Int?
+  ipAddress       String?
+  userAgent       String?
+  duration        Int?      // in milliseconds
+  createdAt       DateTime  @default(now())
+  
+  @@index([endpoint])
+  @@index([createdAt])
+  @@map("api_logs")
+}
